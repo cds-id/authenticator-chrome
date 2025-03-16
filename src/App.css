@@ -494,3 +494,136 @@ main {
 .toggle-filter-button:hover {
   background-color: #3367d6;
 }
+
+/* Company Banner */
+.company-banner {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e0e0e0;
+}
+
+.company-banner-text {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.company-banner-link {
+  color: #4285f4;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.company-banner-link:hover {
+  text-decoration: underline;
+}
+
+/* Help Button and Author Info */
+.footer-container {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.author-info {
+  font-size: 12px;
+  color: #666;
+}
+
+.help-button {
+  background-color: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.help-button:hover {
+  background-color: #e8eaed;
+}
+
+.help-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.help-modal-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  width: 80%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.help-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.help-modal-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+.help-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #666;
+  cursor: pointer;
+}
+
+.help-modal-close:hover {
+  color: #333;
+}
+
+.help-section {
+  margin-bottom: 15px;
+}
+
+.help-section-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.help-section-content {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.help-section-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.help-section-list li {
+  margin-bottom: 5px;
+}

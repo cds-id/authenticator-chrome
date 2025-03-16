@@ -48,12 +48,14 @@ function App() {
   const [qrCodeText, setQrCodeText] = useState('');
   const [scannerError, setScannerError] = useState('');
   const [currentTabUrl, setCurrentTabUrl] = useState<string>('');
+  const [showAllCodes, setShowAllCodes] = useState<boolean>(true);
+  const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
   const [importError, setImportError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showAllCodes, setShowAllCodes] = useState<boolean>(true);
 
   // Get current tab URL
   useEffect(() => {
@@ -600,7 +602,23 @@ function App() {
   };
 
   return (
-    <div className="App">
+    <div className="app-container">
+      <div className="app-header">
+        <h1>TOTP Authenticator</h1>
+      </div>
+
+      <div className="company-banner">
+        <span className="company-banner-text">Need custom software solutions?</span>
+        <a
+          href="https://ciptadusa.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="company-banner-link"
+        >
+          Visit Cipta Dusa
+        </a>
+      </div>
+
       <header className="App-header">
         <h1>TOTP</h1>
         <div className="tab-buttons">
@@ -834,6 +852,100 @@ function App() {
           </div>
         )}
       </main>
+
+      <div className="footer-container">
+        <div className="author-info">Created by Indra (info@ciptadusa.com)</div>
+        <button className="help-button" onClick={() => setShowHelpModal(true)}>
+          Help
+        </button>
+      </div>
+
+      {showHelpModal && (
+        <div className="help-modal">
+          <div className="help-modal-content">
+            <div className="help-modal-header">
+              <div className="help-modal-title">TOTP Authenticator Help</div>
+              <button className="help-modal-close" onClick={() => setShowHelpModal(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="help-section">
+              <div className="help-section-title">What is TOTP?</div>
+              <div className="help-section-content">
+                Time-based One-Time Password (TOTP) is a temporary passcode computed using a shared
+                secret key and the current time. It&apos;s commonly used as a second factor in
+                two-factor authentication (2FA) systems.
+              </div>
+            </div>
+
+            <div className="help-section">
+              <div className="help-section-title">Adding TOTP Codes</div>
+              <div className="help-section-content">
+                <ol className="help-section-list">
+                  <li>Click the &quot;Add Code&quot; button</li>
+                  <li>
+                    Enter the issuer name (e.g., &quot;GitHub&quot;), account name (e.g.,
+                    &quot;username&quot;), and secret key
+                  </li>
+                  <li>Click &quot;Add&quot; to save the TOTP code</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="help-section">
+              <div className="help-section-title">Importing TOTP URIs</div>
+              <div className="help-section-content">
+                <ol className="help-section-list">
+                  <li>Click the &quot;Import TOTP URIs&quot; button</li>
+                  <li>Select a text file containing TOTP URIs (one per line)</li>
+                  <li>The extension will validate and import all valid URIs</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="help-section">
+              <div className="help-section-title">Exporting TOTP URIs</div>
+              <div className="help-section-content">
+                <ol className="help-section-list">
+                  <li>Click the &quot;Export TOTP URIs&quot; button</li>
+                  <li>A text file containing all your TOTP URIs will be downloaded</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="help-section">
+              <div className="help-section-title">Smart Filtering</div>
+              <div className="help-section-content">
+                <p>When you visit a website, the extension will automatically:</p>
+                <ul className="help-section-list">
+                  <li>Show only TOTP codes that match the current website&apos;s domain</li>
+                  <li>Display all codes if no matches are found</li>
+                  <li>Allow you to toggle between filtered view and all codes view</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="help-section">
+              <div className="help-section-title">Contact</div>
+              <div className="help-section-content">
+                For questions, issues, or feature requests, please contact:
+                <br />
+                Email: <a href="mailto:info@ciptadusa.com">info@ciptadusa.com</a>
+                <br />
+                GitHub:{' '}
+                <a
+                  href="https://github.com/cds-id/authenticator-chrome"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  cds-id/authenticator-chrome
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
