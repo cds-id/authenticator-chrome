@@ -603,24 +603,19 @@ function App() {
 
   return (
     <div className="app-container">
-      <div className="app-header">
-        <h1>TOTP Authenticator</h1>
-      </div>
-
-      <div className="company-banner">
-        <span className="company-banner-text">Need custom software solutions?</span>
-        <a
-          href="https://ciptadusa.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="company-banner-link"
-        >
-          Visit Cipta Dusa
-        </a>
-      </div>
-
       <header className="App-header">
-        <h1>TOTP</h1>
+        <div className="company-banner">
+          <span className="company-banner-text">Need custom software solutions?</span>
+          <a
+            href="https://ciptadusa.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="company-banner-link"
+          >
+            {' '}
+            Visit Us
+          </a>
+        </div>
         <div className="tab-buttons">
           <button
             className={`tab-button ${activeTab === TabType.CODES ? 'active' : ''}`}
