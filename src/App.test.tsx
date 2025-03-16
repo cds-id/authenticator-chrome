@@ -2,8 +2,25 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+// Mock Chrome API
+global.chrome = {
+  tabs: {
+    query: jest.fn((queryInfo, callback) => {
+      callback([{ url: 'https://example.com' }]);
+    }),
+  },
+  storage: {
+    sync: {
+      get: jest.fn((keys, callback) => {
+        callback({});
+      }),
+      set: jest.fn(),
+    },
+  },
+} as any;
+
+test('renders TOTP authenticator', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  const headerElement = screen.getByText(/TOTP/i);
+  expect(headerElement).toBeInTheDocument();
 });

@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { TOTP } from 'totp-generator';
 import { Html5Qrcode } from 'html5-qrcode';
 import './App.css';
+import PasswordManager from './components/PasswordManager';
+import { encryptData, decryptData, createPasswordTest } from './utils/encryption';
+import { Modal } from './components/Modal';
 
 // Chrome API type definitions
 declare global {
@@ -43,7 +46,6 @@ function App() {
   const [newSecret, setNewSecret] = useState('');
   const [newIssuer, setNewIssuer] = useState('');
   const [newAccount, setNewAccount] = useState('');
-  // Use timeRemaining from each code instead of global timeLeft
   const [activeTab, setActiveTab] = useState<TabType>(TabType.CODES);
   const [qrCodeText, setQrCodeText] = useState('');
   const [scannerError, setScannerError] = useState('');
@@ -51,11 +53,41 @@ function App() {
   const [showAllCodes, setShowAllCodes] = useState<boolean>(true);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
 
+  // Add password manager state
+  const [isPasswordSet, setIsPasswordSet] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [masterPassword, setMasterPassword] = useState<string>('');
+  const [passwordTestString, setPasswordTestString] = useState<string | null>(null);
+
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
   const [importError, setImportError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load password test string on mount
+  useEffect(() => {
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.get(['passwordTest'], result => {
+        if (result.passwordTest) {
+          setPasswordTestString(result.passwordTest);
+          setIsPasswordSet(true);
+        }
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showHelpModal) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [showHelpModal]);
 
   // Get current tab URL
   useEffect(() => {
@@ -68,15 +100,21 @@ function App() {
 
             // Check if we have any codes matching this URL
             chrome.storage.sync.get(['authCodes'], result => {
-              const storedCodes = (result.authCodes as AuthCode[]) || [];
-              const matchingCodes = storedCodes.filter(
-                code =>
-                  code.issuer.toLowerCase().includes(url.hostname.toLowerCase()) ||
-                  url.hostname.toLowerCase().includes(code.issuer.toLowerCase())
-              );
+              if (result.authCodes && masterPassword) {
+                try {
+                  const decryptedCodes = decryptData(result.authCodes, masterPassword);
+                  const matchingCodes = decryptedCodes.filter(
+                    (code: any) =>
+                      code.issuer.toLowerCase().includes(url.hostname.toLowerCase()) ||
+                      url.hostname.toLowerCase().includes(code.issuer.toLowerCase())
+                  );
 
-              // If we have matching codes, don't show all codes
-              setShowAllCodes(matchingCodes.length === 0);
+                  // If we have matching codes, don't show all codes
+                  setShowAllCodes(matchingCodes.length === 0);
+                } catch (error) {
+                  setShowAllCodes(true);
+                }
+              }
             });
           } catch (e) {
             // Invalid URL, just use empty string
@@ -89,7 +127,7 @@ function App() {
         }
       });
     }
-  }, []);
+  }, [masterPassword]);
 
   // Generate a TOTP code from a secret
   const generateTOTP = (secret: string): string => {
@@ -114,23 +152,32 @@ function App() {
 
     setAuthCodes(updatedCodes);
 
-    // Save to Chrome storage
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.set({ authCodes: updatedCodes });
+    // Save encrypted codes to Chrome storage
+    if (chrome?.storage?.sync && masterPassword) {
+      const encryptedCodes = encryptData(updatedCodes, masterPassword);
+      chrome.storage.sync.set({ authCodes: encryptedCodes });
     }
-  }, [authCodes]);
+  }, [authCodes, masterPassword]);
 
   useEffect(() => {
+    if (!isUnlocked || !masterPassword) return;
+
     // Load saved auth codes from Chrome storage
     if (chrome?.storage?.sync) {
       chrome.storage.sync.get(['authCodes'], result => {
         if (result.authCodes) {
-          // Generate fresh TOTP codes for loaded auth codes
-          const loadedCodes = result.authCodes.map((code: AuthCode) => ({
-            ...code,
-            code: generateTOTP(code.secret),
-          }));
-          setAuthCodes(loadedCodes);
+          try {
+            // Decrypt the stored auth codes
+            const decryptedCodes = decryptData(result.authCodes, masterPassword);
+            const loadedCodes = decryptedCodes.map((code: AuthCode) => ({
+              ...code,
+              code: generateTOTP(code.secret),
+            }));
+            setAuthCodes(loadedCodes);
+          } catch (error) {
+            alert('Failed to decrypt auth codes');
+            return;
+          }
         }
       });
     }
@@ -147,7 +194,7 @@ function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [updateCodes]);
+  }, [updateCodes, isUnlocked, masterPassword]);
 
   // Parse TOTP URI (otpauth://totp/...)
   const parseTotpUri = (
@@ -206,7 +253,7 @@ function App() {
   };
 
   const addNewCode = () => {
-    if (!newSecret) return;
+    if (!newSecret || !masterPassword) return;
 
     try {
       // Clean the secret and verify it's valid by generating a TOTP
@@ -227,9 +274,10 @@ function App() {
       const updatedCodes = [...authCodes, newCode];
       setAuthCodes(updatedCodes);
 
-      // Save to Chrome storage
+      // Encrypt before saving
       if (chrome?.storage?.sync) {
-        chrome.storage.sync.set({ authCodes: updatedCodes });
+        const encryptedCodes = encryptData(updatedCodes, masterPassword);
+        chrome.storage.sync.set({ authCodes: encryptedCodes });
       }
 
       // Reset form
@@ -245,6 +293,8 @@ function App() {
   };
 
   const addCodeFromQr = (qrText: string) => {
+    if (!masterPassword) return;
+
     const totpData = parseTotpUri(qrText);
 
     if (!totpData) {
@@ -270,9 +320,10 @@ function App() {
       const updatedCodes = [...authCodes, newCode];
       setAuthCodes(updatedCodes);
 
-      // Save to Chrome storage
+      // Encrypt before saving
       if (chrome?.storage?.sync) {
-        chrome.storage.sync.set({ authCodes: updatedCodes });
+        const encryptedCodes = encryptData(updatedCodes, masterPassword);
+        chrome.storage.sync.set({ authCodes: encryptedCodes });
       }
 
       // Reset QR form
@@ -460,8 +511,9 @@ function App() {
   };
 
   const saveCodes = (codes: AuthCode[]) => {
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.set({ authCodes: codes });
+    if (chrome?.storage?.sync && masterPassword) {
+      const encryptedCodes = encryptData(codes, masterPassword);
+      chrome.storage.sync.set({ authCodes: encryptedCodes });
     }
   };
 
@@ -495,33 +547,28 @@ function App() {
 
   // Export TOTP codes to a text file with URI list
   const exportCodes = () => {
+    if (!masterPassword) return;
+
     try {
-      // Convert auth codes to TOTP URIs
-      const uriList = authCodes
-        .map(
-          code =>
-            `otpauth://totp/${encodeURIComponent(code.issuer)}:${encodeURIComponent(code.account)}?secret=${code.secret}&issuer=${encodeURIComponent(code.issuer)}`
-        )
-        .join('\n');
+      // Export encrypted data
+      const exportData = {
+        codes: authCodes,
+        timestamp: new Date().toISOString(),
+      };
 
-      // Create a blob from the URI list
-      const blob = new Blob([uriList], { type: 'text/plain' });
+      const encryptedExport = encryptData(exportData, masterPassword);
 
-      // Create a URL for the blob
+      const blob = new Blob([encryptedExport], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
 
-      // Create a temporary anchor element to trigger the download
       const a = document.createElement('a');
       a.href = url;
-      a.download = `totp-backup-${new Date().toISOString().split('T')[0]}.txt`;
+      a.download = `totp-backup-${new Date().toISOString().split('T')[0]}.encrypted`;
       document.body.appendChild(a);
       a.click();
-
-      // Clean up
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      // Log error silently
       alert('Failed to export TOTP codes. Please try again.');
     }
   };
@@ -529,62 +576,26 @@ function App() {
   // Import TOTP codes from a text file with URI list
   const importCodes = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !masterPassword) return;
 
     setImportError('');
 
     const reader = new FileReader();
     reader.onload = e => {
       try {
-        const content = e.target?.result as string;
+        const encryptedContent = e.target?.result as string;
+        const decryptedData = decryptData(encryptedContent, masterPassword);
 
-        // Split the content by lines
-        const uriList = content.split(/\r?\n/).filter(line => line.trim() !== '');
-
-        if (uriList.length === 0) {
-          setImportError('No TOTP URIs found in the import file.');
-          return;
+        if (!decryptedData.codes) {
+          throw new Error('Invalid backup file format');
         }
 
-        // Parse each URI and create a new code
-        const newCodes: AuthCode[] = [];
-        const failedUris: string[] = [];
-
-        uriList.forEach(uri => {
-          const parsedCode = parseTotpUri(uri);
-          if (parsedCode) {
-            newCodes.push({
-              ...parsedCode,
-              code: '',
-              timeRemaining: 30,
-            });
-          } else {
-            failedUris.push(uri);
-          }
-        });
-
-        if (newCodes.length === 0) {
-          setImportError('No valid TOTP URIs found in the import file.');
-          return;
-        }
-
-        // Add the valid codes to the existing codes
-        const updatedCodes = [...authCodes, ...newCodes];
+        const updatedCodes = [...authCodes, ...decryptedData.codes];
         setAuthCodes(updatedCodes);
         saveCodes(updatedCodes);
-
-        // Show success message with details
-        if (failedUris.length > 0) {
-          alert(
-            `Successfully imported ${newCodes.length} TOTP codes. ${failedUris.length} URIs could not be parsed.`
-          );
-        } else {
-          alert(`Successfully imported ${newCodes.length} TOTP codes.`);
-        }
       } catch (error) {
-        // Log error silently
         setImportError(
-          'Failed to parse the import file. Please make sure it contains valid TOTP URIs.'
+          'Failed to import codes. Make sure the file is valid and encrypted with the same password.'
         );
       }
     };
@@ -601,345 +612,316 @@ function App() {
     setActiveTab(tab);
   };
 
+  // Add password management handlers
+  const handlePasswordSet = (password: string) => {
+    const testString = createPasswordTest(password);
+    setMasterPassword(password);
+    setIsPasswordSet(true);
+    setIsUnlocked(true);
+
+    // Save password test string
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ passwordTest: testString });
+    }
+    setPasswordTestString(testString);
+  };
+
+  const handlePasswordVerified = (password: string) => {
+    setMasterPassword(password);
+    setIsUnlocked(true);
+  };
+
+  // Toggle help modal
+  const toggleHelpModal = () => {
+    setShowHelpModal(!showHelpModal);
+  };
+
   return (
     <div className="app-container">
-      <header className="App-header">
-        <div className="company-banner">
-          <span className="company-banner-text">Need custom software solutions?</span>
-          <a
-            href="https://ciptadusa.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="company-banner-link"
-          >
-            {' '}
-            Visit Us
-          </a>
-        </div>
-        <div className="tab-buttons">
-          <button
-            className={`tab-button ${activeTab === TabType.CODES ? 'active' : ''}`}
-            onClick={() => handleTabChange(TabType.CODES)}
-          >
-            My Codes
-          </button>
-          <button
-            className={`tab-button ${activeTab === TabType.ADD ? 'active' : ''}`}
-            onClick={() => handleTabChange(TabType.ADD)}
-          >
-            Add New
-          </button>
-        </div>
-      </header>
-      <main>
-        {activeTab === TabType.CODES ? (
-          <div className="codes-tab">
-            <div className="import-export-buttons">
-              <button className="import-button" onClick={() => fileInputRef.current?.click()}>
-                Import TOTP URIs
+      {!isUnlocked ? (
+        <PasswordManager
+          isPasswordSet={isPasswordSet}
+          passwordTestString={passwordTestString}
+          onPasswordSet={handlePasswordSet}
+          onPasswordVerified={handlePasswordVerified}
+        />
+      ) : (
+        <>
+          <header className="App-header">
+            <div className="company-banner">
+              <span className="company-banner-text">Need custom software solutions?</span>
+              <a
+                href="https://ciptadusa.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="company-banner-link"
+              >
+                {' '}
+                Visit Us
+              </a>
+            </div>
+            <div className="tab-buttons">
+              <button
+                className={`tab-button ${activeTab === TabType.CODES ? 'active' : ''}`}
+                onClick={() => handleTabChange(TabType.CODES)}
+              >
+                My Codes
               </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                accept=".txt,.text"
-                onChange={importCodes}
-              />
-              <button className="export-button" onClick={exportCodes}>
-                Export TOTP URIs
+              <button
+                className={`tab-button ${activeTab === TabType.ADD ? 'active' : ''}`}
+                onClick={() => handleTabChange(TabType.ADD)}
+              >
+                Add New
+              </button>
+              <button className="help-button" onClick={toggleHelpModal} aria-label="Help">
+                ?
               </button>
             </div>
-            {importError && <p className="error-message">{importError}</p>}
-
-            {!showAllCodes && filteredCodes.length > 0 && (
-              <div className="filter-notice">
-                <p>
-                  Showing codes for current site: <strong>{currentTabUrl}</strong>
-                </p>
-                <button className="toggle-filter-button" onClick={() => setShowAllCodes(true)}>
-                  Show All Codes
-                </button>
-              </div>
-            )}
-
-            {showAllCodes && currentTabUrl && (
-              <div className="filter-notice">
-                <p>Showing all codes</p>
-                <button className="toggle-filter-button" onClick={() => setShowAllCodes(false)}>
-                  Filter by Current Site
-                </button>
-              </div>
-            )}
-
-            <div className="auth-codes">
-              {filteredCodes.length === 0 ? (
-                <div className="empty-state">
-                  <p>You don&apos;t have any authentication codes yet.</p>
-                  <button className="add-button" onClick={() => handleTabChange(TabType.ADD)}>
-                    Add Your First Code
+          </header>
+          <main>
+            {activeTab === TabType.CODES ? (
+              <div className="codes-tab">
+                <div className="import-export-buttons">
+                  <button className="import-button" onClick={() => fileInputRef.current?.click()}>
+                    Import TOTP URIs
                   </button>
-                </div>
-              ) : (
-                filteredCodes.map((code, index) => (
-                  <div className="auth-code" key={index}>
-                    <div className="auth-info">
-                      <div className="auth-issuer">{code.issuer}</div>
-                      <div className="auth-account">{code.account}</div>
-                    </div>
-                    <div className="auth-code-display">
-                      <button
-                        className={`code-value ${copiedIndex === index ? 'copied' : ''}`}
-                        onClick={() => copyToClipboard(code.code, index)}
-                        aria-label={`Copy ${code.issuer} code for ${code.account}`}
-                      >
-                        {formatTOTPCode(code.code)}
-                      </button>
-                      <div className="code-timer">
-                        <div className="timer-bar">
-                          <div
-                            className="timer-progress"
-                            style={{ width: `${(code.timeRemaining / 30) * 100}%` }}
-                          ></div>
-                        </div>
-                        <div className="timer-text">{code.timeRemaining}s</div>
-                      </div>
-                    </div>
-                    <div className="auth-actions">
-                      {deleteConfirmIndex === index ? (
-                        <>
-                          <button
-                            className="confirm-delete-button"
-                            onClick={() => removeCode(index)}
-                            aria-label="Confirm delete"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            className="cancel-delete-button"
-                            onClick={cancelDelete}
-                            aria-label="Cancel delete"
-                          >
-                            ✕
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          className="delete-button"
-                          onClick={() => handleDeleteClick(index)}
-                          aria-label={`Delete ${code.issuer} code for ${code.account}`}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="add-container">
-            <h2>Add New Authentication</h2>
-
-            {/* Manual Entry Form */}
-            <div className="add-section">
-              <h3>Add Manually</h3>
-              <div className="form-group">
-                <label htmlFor="service-name">Service Name</label>
-                <input
-                  id="service-name"
-                  type="text"
-                  value={newIssuer}
-                  onChange={e => setNewIssuer(e.target.value)}
-                  placeholder="Google, GitHub, etc."
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="account-name">Account Name</label>
-                <input
-                  id="account-name"
-                  type="text"
-                  value={newAccount}
-                  onChange={e => setNewAccount(e.target.value)}
-                  placeholder="username or email"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="secret-key">Secret Key</label>
-                <input
-                  id="secret-key"
-                  type="text"
-                  value={newSecret}
-                  onChange={e => setNewSecret(e.target.value)}
-                  placeholder="Enter secret key (Base32 format)"
-                />
-              </div>
-              <button className="add-button" onClick={addNewCode}>
-                Add Code
-              </button>
-            </div>
-
-            {/* QR Code Options */}
-            <div className="add-section">
-              <h3>Add via QR Code</h3>
-
-              <div className="qr-options">
-                {/* Upload QR Image */}
-                <div className="qr-option">
-                  <h4>Upload QR Image</h4>
-                  <p>Select a screenshot or image containing a TOTP QR code</p>
                   <input
                     type="file"
-                    accept="image/*"
-                    onChange={e => handleFileUpload(e)}
-                    className="file-input"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    accept=".txt,.text"
+                    onChange={importCodes}
                   />
+                  <button className="export-button" onClick={exportCodes}>
+                    Export TOTP URIs
+                  </button>
                 </div>
+                {importError && <p className="error-message">{importError}</p>}
 
-                {/* Paste QR Text */}
-                <div className="qr-option">
-                  <h4>Paste QR Text</h4>
-                  <p>Paste the TOTP URI directly (starts with &quot;otpauth://totp/&quot;)</p>
+                {!showAllCodes && filteredCodes.length > 0 && (
+                  <div className="filter-notice">
+                    <p>
+                      Showing codes for current site: <strong>{currentTabUrl}</strong>
+                    </p>
+                    <button className="toggle-filter-button" onClick={() => setShowAllCodes(true)}>
+                      Show All Codes
+                    </button>
+                  </div>
+                )}
+
+                {showAllCodes && currentTabUrl && (
+                  <div className="filter-notice">
+                    <p>Showing all codes</p>
+                    <button className="toggle-filter-button" onClick={() => setShowAllCodes(false)}>
+                      Filter by Current Site
+                    </button>
+                  </div>
+                )}
+
+                <div className="auth-codes">
+                  {filteredCodes.length === 0 ? (
+                    <div className="empty-state">
+                      <p>You don&apos;t have any authentication codes yet.</p>
+                      <button className="add-button" onClick={() => handleTabChange(TabType.ADD)}>
+                        Add Your First Code
+                      </button>
+                    </div>
+                  ) : (
+                    filteredCodes.map((code, index) => (
+                      <div className="auth-code" key={index}>
+                        <div className="auth-info">
+                          <div className="auth-issuer">{code.issuer}</div>
+                          <div className="auth-account">{code.account}</div>
+                        </div>
+                        <div className="auth-code-display">
+                          <button
+                            className={`code-value ${copiedIndex === index ? 'copied' : ''}`}
+                            onClick={() => copyToClipboard(code.code, index)}
+                            aria-label={`Copy ${code.issuer} code for ${code.account}`}
+                          >
+                            {formatTOTPCode(code.code)}
+                          </button>
+                          <div className="code-timer">
+                            <div className="timer-bar">
+                              <div
+                                className="timer-progress"
+                                style={{ width: `${(code.timeRemaining / 30) * 100}%` }}
+                              ></div>
+                            </div>
+                            <div className="timer-text">{code.timeRemaining}s</div>
+                          </div>
+                        </div>
+                        <div className="auth-actions">
+                          {deleteConfirmIndex === index ? (
+                            <>
+                              <button
+                                className="confirm-delete-button"
+                                onClick={() => removeCode(index)}
+                                aria-label="Confirm delete"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                className="cancel-delete-button"
+                                onClick={cancelDelete}
+                                aria-label="Cancel delete"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="delete-button"
+                              onClick={() => handleDeleteClick(index)}
+                              aria-label={`Delete ${code.issuer} code for ${code.account}`}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="add-container">
+                <h2>Add New Authentication</h2>
+
+                {/* Manual Entry Form */}
+                <div className="add-section">
+                  <h3>Add Manually</h3>
                   <div className="form-group">
+                    <label htmlFor="service-name">Service Name</label>
                     <input
+                      id="service-name"
                       type="text"
-                      value={qrCodeText}
-                      onChange={e => setQrCodeText(e.target.value)}
-                      placeholder="otpauth://totp/..."
+                      value={newIssuer}
+                      onChange={e => setNewIssuer(e.target.value)}
+                      placeholder="Google, GitHub, etc."
                     />
                   </div>
-                  <button
-                    className="add-button"
-                    onClick={handleQrTextSubmit}
-                    disabled={!qrCodeText}
-                  >
-                    Add from Text
+                  <div className="form-group">
+                    <label htmlFor="account-name">Account Name</label>
+                    <input
+                      id="account-name"
+                      type="text"
+                      value={newAccount}
+                      onChange={e => setNewAccount(e.target.value)}
+                      placeholder="username or email"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="secret-key">Secret Key</label>
+                    <input
+                      id="secret-key"
+                      type="text"
+                      value={newSecret}
+                      onChange={e => setNewSecret(e.target.value)}
+                      placeholder="Enter secret key (Base32 format)"
+                    />
+                  </div>
+                  <button className="add-button" onClick={addNewCode}>
+                    Add Code
                   </button>
                 </div>
 
-                {/* Paste QR Image */}
-                <div className="qr-option">
-                  <h4>Paste QR Image</h4>
-                  <p>Paste a screenshot from clipboard (Ctrl+V or Cmd+V)</p>
-                  <div
-                    className="paste-container"
-                    onPaste={e => handlePasteImage(e)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        document.getElementById('paste-area')?.focus();
-                      }
-                    }}
-                    id="paste-area"
-                  >
-                    <div className="paste-area-content">
-                      <span>Click here and press Ctrl+V or Cmd+V to paste image</span>
+                {/* QR Code Options */}
+                <div className="add-section">
+                  <h3>Add via QR Code</h3>
+
+                  <div className="qr-options">
+                    {/* Upload QR Image */}
+                    <div className="qr-option">
+                      <h4>Upload QR Image</h4>
+                      <p>Select a screenshot or image containing a TOTP QR code</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => handleFileUpload(e)}
+                        className="file-input"
+                      />
+                    </div>
+
+                    {/* Paste QR Text */}
+                    <div className="qr-option">
+                      <h4>Paste QR Text</h4>
+                      <p>Paste the TOTP URI directly (starts with &quot;otpauth://totp/&quot;)</p>
+                      <div className="form-group">
+                        <input
+                          type="text"
+                          value={qrCodeText}
+                          onChange={e => setQrCodeText(e.target.value)}
+                          placeholder="otpauth://totp/..."
+                        />
+                      </div>
+                      <button
+                        className="add-button"
+                        onClick={handleQrTextSubmit}
+                        disabled={!qrCodeText}
+                      >
+                        Add from Text
+                      </button>
+                    </div>
+
+                    {/* Paste QR Image */}
+                    <div className="qr-option">
+                      <h4>Paste QR Image</h4>
+                      <p>Paste a screenshot from clipboard (Ctrl+V or Cmd+V)</p>
+                      <div
+                        className="paste-container"
+                        onPaste={e => handlePasteImage(e)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            document.getElementById('paste-area')?.focus();
+                          }
+                        }}
+                        id="paste-area"
+                      >
+                        <div className="paste-area-content">
+                          <span>Click here and press Ctrl+V or Cmd+V to paste image</span>
+                        </div>
+                      </div>
+                      {scannerError && <p className="error-message">{scannerError}</p>}
                     </div>
                   </div>
-                  {scannerError && <p className="error-message">{scannerError}</p>}
                 </div>
-              </div>
-            </div>
 
-            {/* Hidden element for QR code scanning */}
-            <div id="qr-reader" style={{ display: 'none' }}></div>
+                {/* Hidden element for QR code scanning */}
+                <div id="qr-reader" style={{ display: 'none' }}></div>
+              </div>
+            )}
+          </main>
+          <div className="footer-container">
+            <div className="author-info">Created by Indra (info@ciptadusa.com)</div>
           </div>
-        )}
-      </main>
-
-      <div className="footer-container">
-        <div className="author-info">Created by Indra (info@ciptadusa.com)</div>
-        <button className="help-button" onClick={() => setShowHelpModal(true)}>
-          Help
-        </button>
-      </div>
-
-      {showHelpModal && (
-        <div className="help-modal">
-          <div className="help-modal-content">
-            <div className="help-modal-header">
-              <div className="help-modal-title">TOTP Authenticator Help</div>
-              <button className="help-modal-close" onClick={() => setShowHelpModal(false)}>
-                ×
-              </button>
+          <Modal isOpen={showHelpModal} onClose={toggleHelpModal} title="TOTP Authenticator Help">
+            <div className="help-section">
+              <h3>What is TOTP?</h3>
+              <p>
+                Time-based One-Time Password (TOTP) is a temporary passcode used for two-factor
+                authentication.
+              </p>
             </div>
 
             <div className="help-section">
-              <div className="help-section-title">What is TOTP?</div>
-              <div className="help-section-content">
-                Time-based One-Time Password (TOTP) is a temporary passcode computed using a shared
-                secret key and the current time. It&apos;s commonly used as a second factor in
-                two-factor authentication (2FA) systems.
-              </div>
+              <h3>Adding TOTP Codes</h3>
+              <p>You can add codes manually or by scanning a QR code from your service provider.</p>
             </div>
 
             <div className="help-section">
-              <div className="help-section-title">Adding TOTP Codes</div>
-              <div className="help-section-content">
-                <ol className="help-section-list">
-                  <li>Click the &quot;Add Code&quot; button</li>
-                  <li>
-                    Enter the issuer name (e.g., &quot;GitHub&quot;), account name (e.g.,
-                    &quot;username&quot;), and secret key
-                  </li>
-                  <li>Click &quot;Add&quot; to save the TOTP code</li>
-                </ol>
-              </div>
+              <h3>Password Protection</h3>
+              <p>Your TOTP secrets are encrypted with your password. Make sure to remember it!</p>
             </div>
 
             <div className="help-section">
-              <div className="help-section-title">Importing TOTP URIs</div>
-              <div className="help-section-content">
-                <ol className="help-section-list">
-                  <li>Click the &quot;Import TOTP URIs&quot; button</li>
-                  <li>Select a text file containing TOTP URIs (one per line)</li>
-                  <li>The extension will validate and import all valid URIs</li>
-                </ol>
-              </div>
+              <h3>Backup Your Codes</h3>
+              <p>Use the export feature to create an encrypted backup of your TOTP codes.</p>
             </div>
-
-            <div className="help-section">
-              <div className="help-section-title">Exporting TOTP URIs</div>
-              <div className="help-section-content">
-                <ol className="help-section-list">
-                  <li>Click the &quot;Export TOTP URIs&quot; button</li>
-                  <li>A text file containing all your TOTP URIs will be downloaded</li>
-                </ol>
-              </div>
-            </div>
-
-            <div className="help-section">
-              <div className="help-section-title">Smart Filtering</div>
-              <div className="help-section-content">
-                <p>When you visit a website, the extension will automatically:</p>
-                <ul className="help-section-list">
-                  <li>Show only TOTP codes that match the current website&apos;s domain</li>
-                  <li>Display all codes if no matches are found</li>
-                  <li>Allow you to toggle between filtered view and all codes view</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="help-section">
-              <div className="help-section-title">Contact</div>
-              <div className="help-section-content">
-                For questions, issues, or feature requests, please contact:
-                <br />
-                Email: <a href="mailto:info@ciptadusa.com">info@ciptadusa.com</a>
-                <br />
-                GitHub:{' '}
-                <a
-                  href="https://github.com/cds-id/authenticator-chrome"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  cds-id/authenticator-chrome
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
+          </Modal>
+        </>
       )}
     </div>
   );

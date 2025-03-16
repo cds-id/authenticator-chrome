@@ -1,6 +1,13 @@
 module.exports = {
   webpack: {
     configure: (webpackConfig, { env, paths }) => {
+      // Ignore source map warnings for the totp-generator package
+      webpackConfig.ignoreWarnings = [
+        {
+          module: /node_modules/,
+        },
+      ];
+
       return {
         ...webpackConfig,
         optimization: {
