@@ -1,13 +1,47 @@
 # TOTP: Secure your TOTP in local
 
+<p align="center">
+  <img src="public/base.png" alt="TOTP Authenticator Logo" width="128" height="128">
+</p>
+
 A Chrome extension for securely storing and generating Time-based One-Time Password (TOTP) authentication codes locally, built with React and TypeScript.
 
 ## Features
 
 - Add and manage multiple authentication tokens
 - Automatic code generation with countdown timer
+- Smart filtering to show only relevant codes for the current website
+- Import and export TOTP URIs for easy migration
 - Clean, user-friendly interface
 - Secure storage of authentication secrets using Chrome's sync storage
+- All data stored locally - no external servers involved
+
+## How to Use
+
+### Adding TOTP Codes
+
+1. Click the extension icon in your Chrome toolbar
+2. Click the "Add Code" button
+3. Enter the issuer name (e.g., "GitHub"), account name (e.g., "username"), and secret key
+4. Click "Add" to save the TOTP code
+
+### Importing TOTP URIs
+
+1. Click the "Import TOTP URIs" button
+2. Select a text file containing TOTP URIs (one per line)
+3. The extension will validate and import all valid URIs
+
+### Exporting TOTP URIs
+
+1. Click the "Export TOTP URIs" button
+2. A text file containing all your TOTP URIs will be downloaded
+
+### Smart Filtering
+
+When you visit a website, the extension will automatically:
+- Show only TOTP codes that match the current website's domain
+- Display all codes if no matches are found
+- Allow you to toggle between filtered view and all codes view
 
 ## Development
 
@@ -94,6 +128,16 @@ This will run linting, formatting checks, and unit tests to ensure the extension
 - Support for backup and restore of tokens
 - Dark mode support
 - Custom token icons
+
+## Security
+
+This extension stores all your TOTP secrets locally in Chrome's sync storage. No data is ever sent to external servers. Your authentication codes are generated entirely within your browser.
+
+## Contact
+
+For questions, issues, or feature requests, please contact:
+- Email: [info@ciptadusa.com](mailto:info@ciptadusa.com)
+- GitHub: [https://github.com/cds-id/authenticator-chrome](https://github.com/cds-id/authenticator-chrome)
 
 ## License
 
