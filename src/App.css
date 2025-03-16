@@ -22,10 +22,45 @@
   margin: 0;
   font-size: 1.5rem;
   font-weight: 500;
+  margin-bottom: 10px;
 }
 
-.auth-container {
+/* Tabs */
+.tab-buttons {
+  display: flex;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.tab-buttons button {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #ccc;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-buttons button.active {
+  color: white;
+  border-bottom: 3px solid #3498db;
+  font-weight: 500;
+}
+
+.tab-buttons button:hover:not(.active) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+main {
   padding: 15px;
+}
+
+/* Auth container */
+.auth-container {
+  padding: 0;
 }
 
 .empty-state {
@@ -38,99 +73,274 @@
   margin-bottom: 20px;
 }
 
-.auth-code-item {
-  background-color: #f5f5f5;
-  border-radius: 8px;
+.auth-code {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 12px;
   margin-bottom: 10px;
-  display: flex;
-  position: relative;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
-.auth-code-info {
+.auth-info {
   flex: 1;
+  min-width: 0; /* Allow text to truncate */
+  margin-right: 10px;
 }
 
-.auth-code-issuer {
+.auth-issuer {
   font-weight: bold;
-  font-size: 1rem;
+  font-size: 16px;
   color: #333;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
 }
 
-.auth-code-account {
-  font-size: 0.8rem;
+.auth-account {
+  font-size: 14px;
   color: #666;
-  margin-top: 2px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
 }
 
 .auth-code-display {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: center;
+  min-width: 100px; /* Fixed width for the code display */
 }
 
-.auth-code-value {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 1.2rem;
+.code-value {
+  font-family: 'Courier New', monospace;
+  font-size: 20px;
   font-weight: bold;
+  color: #4285f4;
   letter-spacing: 1px;
-  color: #2c3e50;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: right;
+  width: 100%;
 }
 
-.auth-code-timer {
-  width: 100px;
-  height: 4px;
-  background-color: #ddd;
-  border-radius: 2px;
-  margin-top: 5px;
-  overflow: hidden;
+.code-value:hover {
+  color: #3367d6;
+}
+
+.code-value.copied {
+  color: #34a853;
+}
+
+.code-timer {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
 }
 
 .timer-bar {
+  width: 60px;
+  height: 4px;
+  background-color: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-right: 6px;
+}
+
+.timer-progress {
   height: 100%;
-  background-color: #3498db;
+  background-color: #4285f4;
   transition: width 1s linear;
 }
 
-.remove-button {
-  position: absolute;
-  top: 5px;
-  right: 5px;
+.timer-text {
+  font-size: 12px;
+  color: #666;
+  min-width: 24px; /* Fixed width for the timer text */
+  text-align: right;
+}
+
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  min-width: 40px; /* Fixed width for action buttons */
+  margin-left: 10px;
+}
+
+.delete-button {
   background: none;
   border: none;
-  color: #999;
-  font-size: 1.2rem;
   cursor: pointer;
-  padding: 0;
-  width: 20px;
-  height: 20px;
+  color: #db4437;
+  font-size: 18px;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.delete-button:hover {
+  background-color: rgba(219, 68, 55, 0.1);
+}
+
+.confirm-delete-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #34a853;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+  margin-bottom: 4px;
+}
+
+.confirm-delete-button:hover {
+  background-color: rgba(52, 168, 83, 0.1);
+}
+
+.cancel-delete-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #db4437;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.cancel-delete-button:hover {
+  background-color: rgba(219, 68, 55, 0.1);
+}
+
+.delete-confirm {
+  display: flex;
+  align-items: center;
+}
+
+.confirm-yes,
+.confirm-no {
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  cursor: pointer;
+  margin: 0 2px;
+  transition: all 0.2s;
 }
 
-.remove-button:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-  color: #e74c3c;
+.confirm-yes {
+  background-color: #4caf50;
+  color: white;
 }
 
-.add-new-form {
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  padding: 15px;
-  border: 1px solid #eee;
+.confirm-yes:hover {
+  background-color: #45a049;
 }
 
-.add-new-form h2 {
+.confirm-no {
+  background-color: #ff5252;
+  color: white;
+}
+
+.confirm-no:hover {
+  background-color: #e04848;
+}
+
+/* Import/Export buttons */
+.import-export-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding: 10px;
+}
+
+.import-button,
+.export-button {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.import-button:hover,
+.export-button:hover {
+  background-color: #e0e0e0;
+}
+
+.import-button:before {
+  content: '↑';
+  margin-right: 5px;
+}
+
+.export-button:before {
+  content: '↓';
+  margin-right: 5px;
+}
+
+/* Error message styling */
+.error-message {
+  color: #f44336;
+  text-align: center;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+/* Add container */
+.add-container {
+  padding: 0;
+}
+
+.add-container h2 {
   margin-top: 0;
   font-size: 1.2rem;
   color: #333;
   margin-bottom: 15px;
 }
 
+.add-section {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #eee;
+  margin-bottom: 20px;
+}
+
+.add-section h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.add-section h4 {
+  margin-top: 0;
+  font-size: 1rem;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+/* Form styles */
 .form-group {
   margin-bottom: 12px;
 }
@@ -160,9 +370,127 @@
   font-size: 0.9rem;
   cursor: pointer;
   width: 100%;
-  margin-top: 5px;
+  margin-top: 10px;
 }
 
 .add-button:hover {
   background-color: #1a252f;
+}
+
+.add-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+/* QR Options */
+.qr-options {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.qr-option {
+  margin-bottom: 15px;
+}
+
+.qr-option p {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.file-input {
+  width: 100%;
+  padding: 10px 0;
+}
+
+/* Paste container */
+.paste-container {
+  border: 2px dashed #ccc;
+  border-radius: 4px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+  background-color: #f9f9f9;
+  transition: all 0.2s ease;
+}
+
+.paste-container:hover,
+.paste-container:focus {
+  border-color: #3498db;
+  background-color: #f0f7fc;
+}
+
+.paste-area-content {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+/* Test Parser */
+.test-button {
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+
+.test-button:hover {
+  background-color: #3367d6;
+}
+
+.parser-result {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 10px;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+/* Filter Notice */
+.filter-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.filter-notice p {
+  margin: 0;
+  color: #333;
+}
+
+.filter-notice strong {
+  font-weight: 600;
+  color: #4285f4;
+}
+
+.toggle-filter-button {
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.toggle-filter-button:hover {
+  background-color: #3367d6;
 }

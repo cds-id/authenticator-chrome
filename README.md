@@ -1,6 +1,6 @@
-# Authenticator React Chrome Extension
+# TOTP: Secure your TOTP in local
 
-A Chrome extension for generating and managing two-factor authentication (2FA) codes, built with React and TypeScript.
+A Chrome extension for securely storing and generating Time-based One-Time Password (TOTP) authentication codes locally, built with React and TypeScript.
 
 ## Features
 
@@ -36,18 +36,50 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 To build the extension for production:
 
 ```
-npm run build
+npm run build:extension
 ```
 
-This will create a `build` directory with the compiled extension.
+This will create a `build` directory with the compiled extension, ensuring that the runtime chunk is not inlined (which is required for Chrome extensions).
+
+### Packaging the Extension
+
+To create a distributable ZIP file of the extension:
+
+```
+npm run package
+```
+
+This will build the extension and create a `dist/authenticator-extension.zip` file that can be uploaded to the Chrome Web Store.
+
+### Testing the Extension
+
+To run all tests and code quality checks:
+
+```
+npm run test:extension
+```
+
+This will run linting, formatting checks, and unit tests to ensure the extension is ready for deployment.
 
 ### Loading the Extension in Chrome
 
-1. Build the extension using `npm run build`
+1. Build the extension using `npm run build:extension`
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable "Developer mode" (toggle in the top right)
 4. Click "Load unpacked" and select the `build` directory
 5. The extension should now appear in your Chrome toolbar
+
+## Available Scripts
+
+- `npm start` - Start the development server
+- `npm run build:extension` - Build the extension for Chrome
+- `npm run package` - Build and package the extension as a ZIP file
+- `npm run test:extension` - Run all tests and code quality checks
+- `npm run lint` - Run ESLint to check for code issues
+- `npm run lint:fix` - Run ESLint and automatically fix issues
+- `npm run format` - Format code using Prettier
+- `npm run format:check` - Check if code is properly formatted
+- `npm run clean` - Remove build and dist directories
 
 ## Project Structure
 

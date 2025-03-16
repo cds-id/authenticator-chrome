@@ -1,6 +1,6 @@
 {
-  "name": "authenticator-react",
-  "version": "0.1.0",
+  "name": "totp-secure",
+  "version": "1.0.0",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
@@ -11,15 +11,20 @@
     "@types/node": "^16.18.126",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "@types/totp-generator": "^0.0.8",
+    "html5-qrcode": "^2.3.8",
+    "jsqr": "^1.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-scripts": "5.0.1",
+    "totp-generator": "^1.0.0",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "craco start",
     "build": "craco build",
+    "build:extension": "INLINE_RUNTIME_CHUNK=false craco build",
     "test": "craco test",
     "eject": "react-scripts eject",
     "commit": "cz",
@@ -27,7 +32,10 @@
     "lint:fix": "eslint --ext .js,.jsx,.ts,.tsx src/ --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "package": "npm run build:extension && mkdir -p dist && zip -r dist/totp-secure-extension.zip build",
+    "clean": "rm -rf build dist",
+    "test:extension": "npm run lint && npm run format:check && npm run test"
   },
   "eslintConfig": {
     "extends": [
